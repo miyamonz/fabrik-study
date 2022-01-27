@@ -10,16 +10,16 @@ export const DraggableCircle = ({
 }: {
   position: Pos;
   onMove: (pos: Pos) => void;
-}) => {
+} & JSX.IntrinsicElements["circle"]) => {
   const [offset, setOffset] = React.useState({
     x: 0,
     y: 0,
   });
   const [active, setActive] = useState(false);
 
-  const handlePointerDown = (e) => {
-    const el = e.target;
-    const bbox = e.target.getBoundingClientRect();
+  const handlePointerDown = (e: React.PointerEvent<SVGCircleElement>) => {
+    const el = e.currentTarget;
+    const bbox = el.getBoundingClientRect();
     const x = e.clientX - bbox.left;
     const y = e.clientY - bbox.top;
     el.setPointerCapture(e.pointerId);
@@ -29,8 +29,8 @@ export const DraggableCircle = ({
       y,
     });
   };
-  const handlePointerMove = (e) => {
-    const bbox = e.target.getBoundingClientRect();
+  const handlePointerMove = (e: React.PointerEvent<SVGCircleElement>) => {
+    const bbox = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - bbox.left;
     const y = e.clientY - bbox.top;
     if (active) {

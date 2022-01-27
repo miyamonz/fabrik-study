@@ -1,96 +1,81 @@
 import React, { useEffect, useState } from "react";
 import "./App.css";
 import { DraggableCircle } from "./DraggableCircle";
+import { alignRotation, localToWorld, worldPosToLocalPos } from "./Transform";
+import type {
+  Position,
+  WorldPosition,
+  LocalPosition,
+  WorldRotation,
+  LocalRotation,
+  LocalTransform,
+  WorldTransform,
+  LotationLimit,
+} from "./Transform";
 
-type Pos = { x: number; y: number };
+import { rotate, tickChain } from "./tickChain";
 
-const chainLengths = [100, 200, 300, 100];
+export const chainLengths = [100, 200, 300, 100];
 
-type Bone = {
-  position: Pos;
-  rotationLimit?: [number, number];
-};
-
-function* generateChain() {
-  let x = 100;
-  let y = 200;
-  yield { position: { x, y } } as Bone;
-  for (let i = 0; i < chainLengths.length; i++) {
-    x = chainLengths[i];
-    yield {
-      position: { x, y },
-      rotationLimit: [-Math.PI / 3, Math.PI / 3],
-    } as Bone;
+function getChainArray(): Position[] {
+  function* generateChain() {
+    let x = 100;
+    let y = 400;
+    yield { x, y };
+    for (let i = 0; i < chainLengths.length; i++) {
+      x = chainLengths[i];
+      yield { x, y };
+    }
   }
+  return [...generateChain()];
 }
+
 function App() {
-  const [chain, setChain] = useState<Bone[]>([...generateChain()]);
+  const [posArr, setPosArr] = useState<Position[]>(() => getChainArray());
+  const [result, setResult] = useState<WorldPosition[]>([]);
 
-  const [start, setStart] = useState<Pos>({ x: 100, y: 300 });
-  const [end, setEnd] = useState<Pos>({ x: 500, y: 300 });
+  const [start, setStart] = useState({ x: 100, y: 300 } as WorldPosition);
+  const [end, setEnd] = useState({ x: 500, y: 300 } as WorldPosition);
 
-  const updateChain = (i: number) => (worldPos: Pos) => {
-    const offset = chain.slice(0, i).reduce(
-      (acc, bone) => {
-        acc.x += bone.position.x;
-        acc.y += bone.position.y;
-        return acc;
-      },
-      { x: 0, y: 0 }
-    );
-
-    const localPos = {
-      x: worldPos.x - offset.x,
-      y: worldPos.y - offset.y,
-    };
-
-    return setChain(
-      chain.map((p, j) => (j === i ? { ...p, position: localPos } : p))
-    );
+  const updatePos = (i: number) => (pos: Position) => {
+    return setPosArr(posArr.map((p, j) => (j === i ? pos : p)));
   };
 
+  const [resultTransforms, setResultTransforms] = useState<WorldTransform[]>(
+    []
+  );
+
   useEffect(() => {
-    const newChain = tickChain(start, end, chain);
-    setChain(newChain);
+    const resultPositions = tickChain(
+      start,
+      end,
+      // chain.map((c) => c.localPos),
+      posArr as WorldPosition[]
+    );
+    setResult(resultPositions);
+    setPosArr(resultPositions);
+    const worldPositions = worldPosToLocalPos(resultPositions);
+    //この結果のlocalPos.xをchain lengthで更新しても良い
+    const localTransforms = alignRotation(worldPositions);
+    const worldTransforms = localToWorld(localTransforms);
+    setResultTransforms(worldTransforms);
   }, [start, end]);
 
   return (
     <div className="App">
       <svg width={1000} height={1000}>
-        {chain.map((c, i) => {
-          const DrawLimitLine = ({
-            limit,
-            pos,
-          }: {
-            limit: number;
-            pos: Pos;
-          }) => (
-            <line
-              transform={`rotate(${(limit * 180) / Math.PI} ${pos.x} ${pos.y})`}
-              x1={pos.x}
-              y1={pos.y}
-              x2={pos.x + 100}
-              y2={pos.y}
-              stroke="red"
-              strokeWidth={2}
-            />
-          );
-
+        {posArr.map((p, i) => {
+          const next = posArr[i + 1];
           return (
             <React.Fragment key={i}>
-              <DraggableCircle position={c.position} onMove={updateChain(i)} />
-              {c.rotationLimit && (
-                <g>
-                  <DrawLimitLine limit={c.rotationLimit[0]} pos={c.position} />
-                  <DrawLimitLine limit={c.rotationLimit[1]} pos={c.position} />
-                </g>
-              )}
-              {i !== chain.length - 1 && (
+              <DraggableCircle position={p} onMove={updatePos(i)} />
+
+              {i !== posArr.length - 1 && (
                 <line
-                  x1={chain[i].position.x}
-                  y1={chain[i].position.y}
-                  x2={chain[i + 1].position.x}
-                  y2={chain[i + 1].position.y}
+                  x1={p.x}
+                  y1={p.y}
+                  x2={next.x}
+                  y2={next.y}
                   stroke="black"
                   strokeWidth={2}
                 />
@@ -98,54 +83,90 @@ function App() {
             </React.Fragment>
           );
         })}
-        <DraggableCircle position={start} onMove={setStart} fill="red" r={10} />
-        <DraggableCircle position={end} onMove={setEnd} fill="green" r={10} />
+        {resultTransforms.map((t, i, arr) => {
+          const next = arr[i + 1];
+
+          return (
+            <React.Fragment key={i}>
+              <Circle p={t.worldPos} />
+              <AxisX p={t.worldPos} rot={t.worldRot} />
+              <AxisY p={t.worldPos} rot={t.worldRot} />
+              {/* {c.rotationLimit && (
+                <g
+                  transform={`rotate(${(t.worldRot * 180) / Math.PI} ${
+                    t.worldPos.x
+                  } ${t.worldPos.y})`}
+                >
+                  <DrawLimitLine limit={minRot} pos={t.worldPos} />
+                  <DrawLimitLine limit={maxRot} pos={t.worldPos} />
+                </g>
+              )} */}
+              {i !== arr.length - 1 && (
+                <line
+                  x1={t.worldPos.x}
+                  y1={t.worldPos.y}
+                  x2={next.worldPos.x}
+                  y2={next.worldPos.y}
+                  stroke="gray"
+                  strokeWidth={2}
+                />
+              )}
+            </React.Fragment>
+          );
+        })}
+        <g>
+          {result.map((p, i) => (
+            <circle
+              key={i}
+              cx={p.x}
+              cy={p.y}
+              r={5}
+              fill="blue"
+              strokeWidth={2}
+            />
+          ))}
+        </g>
+        <DraggableCircle
+          position={start}
+          onMove={(pos) => setStart(pos as WorldPosition)}
+          fill="red"
+          r={10}
+        />
+        <DraggableCircle
+          position={end}
+          onMove={(pos) => setEnd(pos as WorldPosition)}
+          fill="green"
+          r={10}
+        />
       </svg>
     </div>
   );
 }
 
-function tickChain(start: Pos, end: Pos, chain: Bone[]) {
-  let newChain = [...chain];
-
-  //backward
-  newChain = [
-    ...updateChain(end, newChain.reverse(), [...chainLengths].reverse()),
-  ].reverse();
-  //forward
-  return [...updateChain(start, newChain, chainLengths)];
-}
-
-function* updateChain(start: Pos, chain: Bone[], chailnLengths: number[]) {
-  let prev: Bone = { ...chain[0], position: start };
-  yield prev;
-  for (let i = 0; i < chailnLengths.length; i++) {
-    const next = chain[i + 1];
-    yield (prev = movePoint(prev, next, chailnLengths[i]));
-  }
-}
-
-function movePoint(bone1: Bone, bone2: Bone, chainLen: number): Bone {
-  console.log(bone1, bone2, chainLen);
-  const p1 = bone1.position;
-  const p2 = bone2.position;
-
-  const v = {
-    x: p2.x - p1.x,
-    y: p2.y - p1.y,
-  };
-  const len = Math.hypot(v.x, v.y);
-  const nv = {
-    x: v.x / len,
-    y: v.y / len,
-  };
-  return {
-    position: {
-      x: p1.x + nv.x * chainLen,
-      y: p1.y + nv.y * chainLen,
-    },
-    rotationLimit: bone1.rotationLimit,
-  };
-}
+const Circle = ({ p }: { p: Position }) => (
+  <circle cx={p.x} cy={p.y} r={10} fill="gray" />
+);
+const AxisX = ({ p, rot }: { p: Position; rot: number }) => (
+  <line
+    transform={`rotate(${(rot * 180) / Math.PI} ${p.x} ${p.y})`}
+    x1={p.x}
+    y1={p.y}
+    x2={p.x + 20}
+    y2={p.y}
+    stroke="red"
+    strokeWidth={2}
+  />
+);
+const AxisY = ({ p, rot }: { p: Position; rot: number }) => (
+  <line
+    transform={`rotate(${(rot * 180) / Math.PI} ${p.x} ${p.y})`}
+    x1={p.x}
+    y1={p.y}
+    x2={p.x}
+    y2={p.y + 20}
+    stroke="green"
+    strokeWidth={2}
+  />
+);
 
 export default App;
