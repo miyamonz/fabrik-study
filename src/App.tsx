@@ -2,21 +2,16 @@ import React, { useEffect, useState } from "react";
 import "./App.css";
 import { DraggableCircle } from "./DraggableCircle";
 import { alignRotation, localToWorld, worldPosToLocalPos } from "./Transform";
-import type {
-  Position,
-  WorldPosition,
-  LocalPosition,
-  WorldRotation,
-  LocalRotation,
-  LocalTransform,
-  WorldTransform,
-  LotationLimit,
-} from "./Transform";
+import type { Position, WorldPosition, WorldTransform } from "./Transform";
 
-import { rotate, tickChain } from "./tickChain";
+import { tickChain } from "./tickChain";
 
-export const chainLengths = [100, 200, 300, 100];
-
+export const chainLengths = [100, 100, 100, 80, 80, 200, 100];
+type RotationLimits = Record<number, [min: number, max: number]>;
+const rotationLimits: RotationLimits = {
+  2: [-Math.PI / 4, Math.PI / 4],
+  3: [-Math.PI / 3, Math.PI / 3],
+};
 function getChainArray(): Position[] {
   function* generateChain() {
     let x = 100;
@@ -49,8 +44,8 @@ function App() {
     const resultPositions = tickChain(
       start,
       end,
-      // chain.map((c) => c.localPos),
-      posArr as WorldPosition[]
+      posArr as WorldPosition[],
+      rotationLimits
     );
     setResult(resultPositions);
     setPosArr(resultPositions);
@@ -85,22 +80,22 @@ function App() {
         })}
         {resultTransforms.map((t, i, arr) => {
           const next = arr[i + 1];
-
+          const limit = rotationLimits[i];
           return (
             <React.Fragment key={i}>
               <Circle p={t.worldPos} />
               <AxisX p={t.worldPos} rot={t.worldRot} />
               <AxisY p={t.worldPos} rot={t.worldRot} />
-              {/* {c.rotationLimit && (
+              {limit && (
                 <g
                   transform={`rotate(${(t.worldRot * 180) / Math.PI} ${
                     t.worldPos.x
                   } ${t.worldPos.y})`}
                 >
-                  <DrawLimitLine limit={minRot} pos={t.worldPos} />
-                  <DrawLimitLine limit={maxRot} pos={t.worldPos} />
+                  <DrawLine pos={t.worldPos} rot={limit[0]} />
+                  <DrawLine pos={t.worldPos} rot={limit[1]} />
                 </g>
-              )} */}
+              )}
               {i !== arr.length - 1 && (
                 <line
                   x1={t.worldPos.x}
@@ -168,5 +163,15 @@ const AxisY = ({ p, rot }: { p: Position; rot: number }) => (
     strokeWidth={2}
   />
 );
-
+const DrawLine = ({ pos, rot }: { pos: Position; rot: number }) => (
+  <line
+    transform={`rotate(${(rot * 180) / Math.PI} ${pos.x} ${pos.y})`}
+    x1={pos.x}
+    y1={pos.y}
+    x2={pos.x + 40}
+    y2={pos.y}
+    stroke="gray"
+    strokeWidth={5}
+  />
+);
 export default App;
