@@ -28,16 +28,6 @@ function forward(
     const curr = chain[i + 1];
     const next = chain[i];
     const len = chainLens[i];
-    const offset = {
-      x: curr.x - prev?.x,
-      y: curr.y - prev?.y,
-    };
-    const limit =
-      rotationLimits && prev
-        ? (rotationLimits[i + 1]?.map(
-            (r) => r + Math.atan2(offset.y, offset.x)
-          ) as [WorldRotation, WorldRotation])
-        : undefined;
 
     const newPoint = movePoint(curr, next, len) as WorldPosition;
 

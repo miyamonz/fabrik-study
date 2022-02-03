@@ -64,16 +64,8 @@ function App() {
           return (
             <React.Fragment key={i}>
               <DraggableCircle position={p} onMove={updatePos(i)} />
-
               {i !== posArr.length - 1 && (
-                <line
-                  x1={p.x}
-                  y1={p.y}
-                  x2={next.x}
-                  y2={next.y}
-                  stroke="black"
-                  strokeWidth={2}
-                />
+                <Line p1={p} p2={next} stroke="black" />
               )}
             </React.Fragment>
           );
@@ -97,14 +89,7 @@ function App() {
                 </g>
               )}
               {i !== arr.length - 1 && (
-                <line
-                  x1={t.worldPos.x}
-                  y1={t.worldPos.y}
-                  x2={next.worldPos.x}
-                  y2={next.worldPos.y}
-                  stroke="gray"
-                  strokeWidth={2}
-                />
+                <Line p1={t.worldPos} p2={next.worldPos} stroke="gray" />
               )}
             </React.Fragment>
           );
@@ -141,35 +126,34 @@ function App() {
 const Circle = ({ p }: { p: Position }) => (
   <circle cx={p.x} cy={p.y} r={10} fill="gray" />
 );
+
+const Line: React.FC<
+  { p1: Position; p2: Position } & JSX.IntrinsicElements["line"]
+> = ({ p1, p2, ...props }) => (
+  <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} strokeWidth="2" {...props} />
+);
+
 const AxisX = ({ p, rot }: { p: Position; rot: number }) => (
-  <line
+  <Line
     transform={`rotate(${(rot * 180) / Math.PI} ${p.x} ${p.y})`}
-    x1={p.x}
-    y1={p.y}
-    x2={p.x + 20}
-    y2={p.y}
+    p1={p}
+    p2={{ x: p.x + 20, y: p.y }}
     stroke="red"
-    strokeWidth={2}
   />
 );
 const AxisY = ({ p, rot }: { p: Position; rot: number }) => (
-  <line
+  <Line
     transform={`rotate(${(rot * 180) / Math.PI} ${p.x} ${p.y})`}
-    x1={p.x}
-    y1={p.y}
-    x2={p.x}
-    y2={p.y + 20}
+    p1={p}
+    p2={{ x: p.x, y: p.y + 20 }}
     stroke="green"
-    strokeWidth={2}
   />
 );
 const DrawLine = ({ pos, rot }: { pos: Position; rot: number }) => (
-  <line
+  <Line
     transform={`rotate(${(rot * 180) / Math.PI} ${pos.x} ${pos.y})`}
-    x1={pos.x}
-    y1={pos.y}
-    x2={pos.x + 40}
-    y2={pos.y}
+    p1={pos}
+    p2={{ x: pos.x + 40, y: pos.y }}
     stroke="gray"
     strokeWidth={5}
   />
